@@ -1,19 +1,40 @@
 <?php
+
 declare(strict_types=1);
 
 namespace Drupal\dhl_location_finder\Form;
 
 use Drupal\Core\Form\FormBase;
 use Drupal\Core\Form\FormStateInterface;
-use GuzzleHttp\ClientInterface;
+use Drupal\dhl_location_finder\Service\DhlApiService;
+use Drupal\dhl_location_finder\Service\DataTransformer;
 use Symfony\Component\DependencyInjection\ContainerInterface;
-use Symfony\Component\Yaml\Yaml;
 
 /**
  * Provides a DHL location finder form.
  */
 final class LocationForm extends FormBase
 {
+
+  protected $dhlApiService;
+
+  protected $dataTransformer;
+
+  public function __construct(
+    DHLApiService $dhl_api_service,
+    DataTransformer $data_transformer
+  ) {
+    $this->dhlApiService = $dhl_api_service;
+    $this->dataTransformer = $data_transformer;
+  }
+
+  public static function create(ContainerInterface $container)
+  {
+    return new static(
+      $container->get('dhl_location_finder.dhl_api_service'),
+      $container->get('dhl_location_finder.data_transformer')
+    );
+  }
 
   /**
    * {@inheritdoc}
@@ -59,29 +80,6 @@ final class LocationForm extends FormBase
     FormStateInterface $form_state
   ): void {
     // @todo Validate the form here.
-    // Example:
-    // @code
-    //   if (mb_strlen($form_state->getValue('message')) < 10) {
-    //     $form_state->setErrorByName(
-    //       'message',
-    //       $this->t('Message should be at least 10 characters.'),
-    //     );
-    //   }
-    // @endcode
-  }
-
-  protected $httpClient;
-
-  public function __construct(ClientInterface $http_client)
-  {
-    $this->httpClient = $http_client;
-  }
-
-  public static function create(ContainerInterface $container)
-  {
-    return new static(
-      $container->get('http_client')
-    );
   }
 
   /**
@@ -94,102 +92,15 @@ final class LocationForm extends FormBase
     $city = $form_state->getValue('city');
     $postal_code = $form_state->getValue('postal_code');
 
-    // Build the API request URL
-    $api_url = 'https://api-sandbox.dhl.com/location-finder/v1/find-by-address?countryCode=' . $country . '&addressLocality=' . $city . '&postalCode=' . $postal_code;
+    // Use the services:
+    $data = $this->dhlApiService->fetchLocations($country, $city, $postal_code);
+    $yamlOutput = $this->dataTransformer->toYaml($data);
 
-    // Define your API key (replace 'ApiKeyPasteHere' with your actual API key)
-    $api_key = 'demo-key';
+    // Store the YAML string in the session or cache for retrieval
+    $_SESSION['location_yaml_data'] = $yamlOutput;
 
-    // Make the API request
-    $response = $this->httpClient->get($api_url, [
-      'headers' => [
-        'DHL-API-Key' => $api_key,
-      ],
-    ]);
-
-    if ($response->getStatusCode() == 200) {
-      $data = json_decode((string)$response->getBody());
-
-      $yamlData = [];
-
-      foreach ($data->locations as $location) {
-        // Extract numbers from the streetAddress
-        preg_match_all(
-          '/\d+/',
-          $location->place->address->streetAddress,
-          $matches
-        );
-        $lastNumber = end(
-          $matches[0]
-        ); // take the last number which usually represents the street number
-
-        // Check if the location has an odd street number
-        if ($lastNumber % 2 != 0) {
-          continue; // skip this location if the street number is odd
-        }
-
-        $openingHours = [
-          'monday' => '',
-          'tuesday' => '',
-          'wednesday' => '',
-          'thursday' => '',
-          'friday' => '',
-          'saturday' => '',
-          'sunday' => '',
-        ];
-
-        foreach ($location->openingHours as $openingDay) {
-          // Extract the day from the URL
-          $day = strtolower(basename($openingDay->dayOfWeek));
-
-          // Check if the day exists in the openingHours array
-          if (!isset($openingHours[$day])) {
-            continue;
-          }
-
-          // Combine the day with the opening hours
-          $hours = $openingDay->opens . ' - ' . $openingDay->closes;
-
-          if ($openingHours[$day]) {
-            $openingHours[$day] .= ', ' . $hours;
-          } else {
-            $openingHours[$day] = $hours;
-          }
-        }
-
-        // Check if the location has opening hours on weekends
-        if (empty($openingHours['saturday']) && empty($openingHours['sunday'])) {
-          continue; // skip this location if it doesn't have weekend opening hours
-        }
-
-        $yamlData[] = [
-          'locationName' => $location->name,
-          'address' => [
-            'countryCode' => $location->place->address->countryCode,
-            'postalCode' => $location->place->address->postalCode,
-            'addressLocality' => $location->place->address->addressLocality,
-            'streetAddress' => $location->place->address->streetAddress,
-          ],
-          'openingHours' => $openingHours,
-        ];
-      }
-
-      // Convert the filtered data to YAML format
-      $yamlOutput = Yaml::dump(
-        $yamlData,
-        4
-      );  // "4" here denotes the depth for inline sequences; it helps in formatting
-
-      // Store the YAML string in the session or cache for retrieval
-      $_SESSION['location_yaml_data'] = $yamlOutput;
-
-      // Redirect to custom display page
-      $form_state->setRedirect('dhl_location_finder.display_yaml');
-    } else {
-      // Handle API request error
-      \Drupal::messenger()
-        ->addMessage('Error fetching data from the API.', 'error');
-    }
+    // Redirect to custom display page
+    $form_state->setRedirect('dhl_location_finder.display_yaml');
   }
 
 }

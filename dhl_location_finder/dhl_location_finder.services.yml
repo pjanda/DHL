@@ -1,0 +1,7 @@
+services:
+  dhl_location_finder.dhl_api_service:
+    class: Drupal\dhl_location_finder\Service\DhlApiService
+    arguments: ['@http_client']
+
+  dhl_location_finder.data_transformer:
+    class: Drupal\dhl_location_finder\Service\DataTransformer
