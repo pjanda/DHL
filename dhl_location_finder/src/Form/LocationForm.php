@@ -1,4 +1,5 @@
-<?php declare(strict_types=1);
+<?php
+declare(strict_types=1);
 
 namespace Drupal\dhl_location_finder\Form;
 
@@ -53,8 +54,10 @@ final class LocationForm extends FormBase
   /**
    * {@inheritdoc}
    */
-  public function validateForm(array &$form, FormStateInterface $form_state): void
-  {
+  public function validateForm(
+    array &$form,
+    FormStateInterface $form_state
+  ): void {
     // @todo Validate the form here.
     // Example:
     // @code
@@ -110,10 +113,15 @@ final class LocationForm extends FormBase
       $yamlData = [];
 
       foreach ($data->locations as $location) {
-
         // Extract numbers from the streetAddress
-        preg_match_all('/\d+/', $location->place->address->streetAddress, $matches);
-        $lastNumber = end($matches[0]); // take the last number which usually represents the street number
+        preg_match_all(
+          '/\d+/',
+          $location->place->address->streetAddress,
+          $matches
+        );
+        $lastNumber = end(
+          $matches[0]
+        ); // take the last number which usually represents the street number
 
         // Check if the location has an odd street number
         if ($lastNumber % 2 != 0) {
@@ -127,7 +135,7 @@ final class LocationForm extends FormBase
           'thursday' => '',
           'friday' => '',
           'saturday' => '',
-          'sunday' => ''
+          'sunday' => '',
         ];
 
         foreach ($location->openingHours as $openingDay) {
@@ -162,12 +170,15 @@ final class LocationForm extends FormBase
             'addressLocality' => $location->place->address->addressLocality,
             'streetAddress' => $location->place->address->streetAddress,
           ],
-          'openingHours' => $openingHours
+          'openingHours' => $openingHours,
         ];
       }
 
       // Convert the filtered data to YAML format
-      $yamlOutput = Yaml::dump($yamlData, 4);  // "4" here denotes the depth for inline sequences; it helps in formatting
+      $yamlOutput = Yaml::dump(
+        $yamlData,
+        4
+      );  // "4" here denotes the depth for inline sequences; it helps in formatting
 
       // Store the YAML string in the session or cache for retrieval
       $_SESSION['location_yaml_data'] = $yamlOutput;
@@ -176,7 +187,8 @@ final class LocationForm extends FormBase
       $form_state->setRedirect('dhl_location_finder.display_yaml');
     } else {
       // Handle API request error
-      \Drupal::messenger()->addMessage('Error fetching data from the API.', 'error');
+      \Drupal::messenger()
+        ->addMessage('Error fetching data from the API.', 'error');
     }
   }
 
