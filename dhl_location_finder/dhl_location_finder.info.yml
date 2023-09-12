@@ -1,0 +1,5 @@
+name: 'DHL location finder'
+type: module
+description: 'This module provide a form for entering the country, city and postal code. After submitting the form, a list of locations will be displayed.'
+package: Custom
+core_version_requirement: ^10

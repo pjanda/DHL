@@ -1,0 +1,14 @@
+dhl_location_finder.location:
+  path: '/dhl-location-finder/location'
+  defaults:
+    _title: 'Location'
+    _form: 'Drupal\dhl_location_finder\Form\LocationForm'
+  requirements:
+    _permission: 'access content'
+dhl_location_finder.display_yaml:
+  path: '/dhl-location-finder/display-yaml'
+  defaults:
+    _controller: '\Drupal\dhl_location_finder\Controller\DisplayYamlController::displayYaml'
+    _title: 'Display YAML'
+  requirements:
+    _permission: 'access content'
